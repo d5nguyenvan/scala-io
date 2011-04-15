@@ -31,7 +31,7 @@ class ResourceTraversableTest {
   @Test //@Ignore
   def size_should_work_like_lists = {
     val traversable = newResource()
-
+/*
     assertSizeAndType(traversable, t => t.slice(-1,300))
     assertSizeAndType(traversable, t => t.slice(0,0))
     assertSizeAndType(traversable, t => t.drop(300))
@@ -40,7 +40,7 @@ class ResourceTraversableTest {
     assertSizeAndType(traversable, t => t.drop(0))
     assertSizeAndType(traversable, t => t.drop(0))
     assertSizeAndType(traversable, t => t.drop(2))
-    assertSizeAndType(traversable, t => t.slice(2,10))
+    assertSizeAndType(traversable, t => t.slice(2,10))     */
     assertSizeAndType(traversable, t => t.map{_.toChar}.slice(2,10))
     assertSizeAndType(traversable, t => t.take(10).drop(5))
     assertSizeAndType(traversable, t => t.take(10).drop(5).take(2))
@@ -115,6 +115,9 @@ class ResourceTraversableTest {
 
   @Test //@Ignore
   def should_handle_slice = assertSizeAndType(newResource(), _ slice(3,10))
+
+  //@Test //@Ignore
+  //def should_handle_zip = assertSizeAndType(newResource(), _ zip (101 to 200))
 
   @Test //@Ignore
   def should_handle_tail = assertSizeAndType(newResource(), _ tail)

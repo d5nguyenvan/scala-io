@@ -108,7 +108,7 @@ trait Input {
    */
   def lines(terminator: Terminators.Terminator = new Terminators.Auto(),
             includeTerminator: Boolean = false)(implicit codec: Codec = Codec.default): ResourceView[String] = {
-                new LineTraversable(chars(codec), terminator, includeTerminator).view
+    new LineTraversable(chars(codec).iterator, terminator, includeTerminator).view
   }
   /**
    * Loads all the characters into memory. There is no protection against
@@ -178,16 +178,17 @@ object Input {
       def toInput(t: Traversable[Int]) = new Input {
         def chars(implicit codec: Codec = Codec.default) = new LongTraversable[Char] {
           val maxChars = codec.encoder.maxBytesPerChar
-
           lazy val chars = codec.decode(t.view.map{_.toByte}.toArray)
-          def foreach[U](f: (Char) => U) = chars.foreach(f)
+          def iterator: CloseableIterator[Char] = CloseableIterator(chars.iterator)
         }.view
 
         def bytesAsInts = new LongTraversable[Int]{
-          def foreach[U](f: (Int) => U) = t.foreach{
-            i =>
-              val convertIntsToBytes = OutputConverter.IntConverter.toBytes(i)
-              convertIntsToBytes.foreach {b => f(b.toInt)}
+          def iterator = new CloseableIterator[Int] {
+            var iter = OutputConverter.TraversableIntConverter.toBytes(t)
+
+            def next() = iter.next.toInt
+            def hasNext: Boolean = iter.hasNext
+            def close() {}
           }
         }.view
 
@@ -203,16 +204,18 @@ object Input {
           val maxChars = codec.encoder.maxBytesPerChar
 
           lazy val chars = codec.decode(t.toArray)
-          def foreach[U](f: (Char) => U) = chars.foreach(f)
+
+          def iterator: CloseableIterator[Char] = CloseableIterator(chars.iterator)
         }.view
 
         def bytesAsInts = new LongTraversable[Int]{
-          def foreach[U](f: (Int) => U) = t.foreach(b => f(b.toInt))
+
+          def iterator: CloseableIterator[Int] = CloseableIterator(t.toIterator.map(_.toInt))
         }.view
 
 
         override def bytes = new LongTraversable[Byte]{
-          def foreach[U](f: (Byte) => U) = t.foreach(b => f(b))
+          def iterator: CloseableIterator[Byte] = CloseableIterator(t.toIterator)
         }.view
 
         def size = Some(t.size)

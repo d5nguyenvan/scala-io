@@ -11,6 +11,7 @@ package scalax.io
 import scala.collection._
 import mutable.Builder
 import util.control.Breaks._
+import java.io.Closeable
 
 /**
  * The control signals for the limitFold method in [[scalax.io.LongTraversable]].
@@ -31,7 +32,6 @@ case class Continue[+A](currentResult:A) extends FoldResult(currentResult)
  * Signal indicating that the fold should stop and return the contained result
  */
 case class End[+A](endResult:A) extends FoldResult(endResult)
-
 
 /**
  * A traversable for use on very large datasets which cannot be indexed with Ints but instead
@@ -76,6 +76,19 @@ trait LongTraversableLike[+A, +Repr <: LongTraversableLike[A,Repr]] extends Trav
     }
   }
 
+  protected[io] def iterator:CloseableIterator[A]
+
+  def foreach[U](f: (A) => U) {
+    val iter = iterator
+    try {
+      iter.foreach(f)
+    } finally {
+      iter.close()
+    }
+  }
+
+  override def slice(from: Int, until: Int) = lslice(from,until)
+
   /**
    * The long equivalent of count in Traversable.
    */
@@ -108,7 +121,7 @@ trait LongTraversableLike[+A, +Repr <: LongTraversableLike[A,Repr]] extends Trav
   /**
    * The long equivalent of Traversable.slice
    */
-  def lslice(from: Long, until: Long): Repr = ldrop(from).ltake(until)
+  def lslice(from: Long, until: Long): Repr = ldrop(from).ltake(until-from)
   /**
    * The long equivalent of Traversable.splitAt
    */
@@ -132,7 +145,8 @@ trait LongTraversableLike[+A, +Repr <: LongTraversableLike[A,Repr]] extends Trav
 
   override def view = new LongTraversableView[A,Repr] {
     protected lazy val underlying = self.repr
-    def foreach[U](f: (A) => U): Unit = self foreach f
+
+    protected[io] def iterator = self.iterator
   }
   override def view(from: Int, until: Int) = view.slice(from, until)
   /**
@@ -140,7 +154,18 @@ trait LongTraversableLike[+A, +Repr <: LongTraversableLike[A,Repr]] extends Trav
    */
   def lview(from: Long, until: Long) : LongTraversableView[A,Repr] = this.view.lslice(from, until)
 
+  /*
+  def sameContents[B >: A](that:Traversable[B]):Boolean = {
 
+  }
+  */
+
+  /** Selects an element by its index in the $coll.
+   *
+   *  @param  idx  The index to select.
+   *  @return the element of this $coll at index `idx`, where `0` indicates the first element.
+   *  @throws `IndexOutOfBoundsException` if `idx` does not satisfy `0 <= idx < length`.
+   */
   def apply (idx: Long):A = ldrop(idx).head
 
   /** Tests whether every element of this $coll relates to the
@@ -154,18 +179,17 @@ trait LongTraversableLike[+A, +Repr <: LongTraversableLike[A,Repr]] extends Trav
    *                  and `y` of `that`, otherwise `false`.
    */
   def corresponds[B](that: Seq[B])(p: (A,B) => Boolean): Boolean = {
+    val i = this.iterator
     val j = that.iterator
-    var result = true
-    breakable{
-      foreach { next =>
-        if(!j.hasNext || !p(next,j.next)) {
-          result = false
-          break
-        }
-      }
-    }
+    try {
+    while (i.hasNext && j.hasNext)
+      if (!p(i.next(), j.next))
+        return false
 
-    result && !j.hasNext
+    !i.hasNext && !j.hasNext
+    } finally {
+      i.close()
+    }
   }
 
   /** Finds index of first element satisfying some predicate.
@@ -189,15 +213,19 @@ trait LongTraversableLike[+A, +Repr <: LongTraversableLike[A,Repr]] extends Trav
    */
   def indexWhere(p: A => Boolean, from: Long): Long = {
     var i = from
-    breakable{
-      ldrop(from) foreach { next =>
-          if (p(next)) break
+    var it = ldrop(from).iterator
+    try {
+      while (it.hasNext) {
+        if (p(it.next())) return i
         else i += 1
       }
-      i = -1
+    }finally {
+      it.close()
     }
-    i
+
+    -1
   }
+
   def isDefinedAt ( idx : Long ) : Boolean = (idx >= 0) && (idx < lsize)
   /** Finds index of first occurrence of some value in this $coll.
    *

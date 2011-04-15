@@ -15,9 +15,16 @@ class LongTraversableTest {
                      dataFunc: (Int) => Traversable[Int] = (i:Int) => 1 to i) =
     new LongTraversable[Int] {
       val data = dataFunc(tsize)
-      def foreach[U](f: (Int) => U) = data foreach {i =>
-        callback(i)
-        f(i)
+
+      def iterator: CloseableIterator[Int] = new CloseableIterator[Int] {
+        val iter = data.toIterator
+        def next(): Int = {
+          val i = iter.next()
+          callback(i)
+          i
+        }
+        def hasNext: Boolean = iter.hasNext
+        def close() {}
       }
     }
 
@@ -55,6 +62,21 @@ class LongTraversableTest {
     1 to 100 foreach { i =>
       assertEquals(i,input(i-1))
     }
+  }
+  @Test
+  def ldrop{
+    val input = traversable(100)
+    assertEquals(90,input.ldrop(10).size)
+  }
+  @Test
+  def ltake{
+    val input = traversable(100)
+    assertEquals(10,input.ltake(10).size)
+  }
+  @Test
+  def lslice{
+    val input = traversable(100)
+    assertEquals(8,input.lslice(2,10).size)
   }
   @Test
   def corresponds{

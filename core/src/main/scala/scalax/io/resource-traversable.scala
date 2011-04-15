@@ -11,6 +11,7 @@ package scalax.io
 import java.io.{
   InputStream, Reader, Closeable
 }
+import collection.Iterator
 
 /**
  * A way of abstracting over the source Resource's type
@@ -40,21 +41,36 @@ private[io] trait ResourceTraversable[A] extends LongTraversable[A]
   protected def start : Long
   protected def end : Long
 
-  def foreach[U](f: (A) => U) : Unit = doForeach(f)
-  def doForeach[U](f: A => U) : Unit = {
+  protected[io] def iterator: CloseableIterator[A] = getIterator
 
-    for(stream <- source.resource) {
-      if(start > 0) source.skip(stream,start)
+  protected def getIterator = new CloseableIterator[A] {
 
-      var v = source.read(stream)
-      var c = start
-      val funAndInc = conv andThen f andThen {f => c += 1}
-      while(v != None && c < end) {
-        funAndInc(v.get)
-        v = source.read(stream)
-      }
+    private val openedResource = source.resource.open()
+    private val resource = openedResource.get
+    source.skip(resource,start)
+
+    var nextEl:Option[SourceOut] = _
+    var c = start
+
+    def next(): A = {
+      val n = nextEl.get
+      nextEl = null
+      conv(n)
     }
+
+    def hasNext: Boolean = {
+      if(c >= end) return false
+
+      if(nextEl == null) {
+        nextEl = source.read(resource)
+        c += 1
+      }
+      nextEl.isDefined
+    }
+
+    def close() = openedResource.close()
   }
+
 
   override def ldrop(length : Long) : LongTraversable[A] = lslice(length,Long.MaxValue)
   override def drop(length : Int) = ldrop(length.toLong)
