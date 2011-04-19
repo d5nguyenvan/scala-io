@@ -447,7 +447,11 @@ class LongTraversableTest {
     val expected = expectedData()
 
     assertEquals(expected.zip(1 to expected.size).toList,
-      input.zip(1 to expected.size).toList)
+          input.zip(1 to expected.size).toList)
+
+    assertEquals(expected.zip(1 to expected.size).toList,
+      input.zip(toLongResource(1 to expected.size)).toList)
+
   }
   @Test
   def zip_is_lazy {
@@ -455,6 +459,22 @@ class LongTraversableTest {
     val input = traversable(callback = _ => count += 1).view
 
     input.zip(1 to 100)
+    assertEquals(0,count)
+  }
+  @Test
+  def zipAll_is_lazy {
+    var count = 0
+    val input = traversable(callback = _ => count += 1).view
+
+    input.zipAll(1 to 130,2,3)
+    assertEquals(0,count)
+  }
+  @Test
+  def zipWithIndex_is_lazy {
+    var count = 0
+    val input = traversable(callback = _ => count += 1).view
+
+    input.zipWithIndex
     assertEquals(0,count)
   }
 
@@ -465,6 +485,9 @@ class LongTraversableTest {
 
     assertEquals(expected.zipAll(1 to (expected.size * 2), 1,2).toList,
       input.zipAll(1 to (expected.size * 2), 1,2).toList)
+
+    assertEquals(expected.zipAll(1 to (expected.size * 2), 1,2).toList,
+      input.zipAll(toLongResource (1 to (expected.size * 2)), 1,2).toList)
   }
 
   @Test
