@@ -28,8 +28,8 @@ class LongTraversableTest {
           callback(i)
           i
         }
-        def hasNext: Boolean = iter.hasNext
-        def close() {}
+        def doHasNext: Boolean = iter.hasNext
+        def doClose() {}
       }
     }
     if(conv != identity) lt.map(conv)
@@ -460,6 +460,9 @@ class LongTraversableTest {
 
     input.zip(1 to 100)
     assertEquals(0,count)
+
+    input.zip(traversable(100))
+    assertEquals(0,count)
   }
 
   @Test
@@ -479,6 +482,8 @@ class LongTraversableTest {
     val input = traversable(callback = _ => count += 1).view
 
     input.zipAll(1 to 130,2,3)
+    assertEquals(0,count)
+    input.zipAll(traversable(130),2,3)
     assertEquals(0,count)
   }
 
@@ -510,9 +515,9 @@ class LongTraversableTest {
         actual.toList == expected.toList
     }
 
-    val skipsliding = input.sliding(10,10)
-    assertEquals(expected.sliding(10,10).size,skipsliding.size)
-    skipsliding.zip(expected.sliding(10,10).toSeq).forall{
+    val skipsliding = input.sliding(10,3)
+    assertEquals(expected.sliding(10,3).size,skipsliding.size)
+    skipsliding.zip(expected.sliding(10,3).toSeq).forall{
       case (actual,expected) =>
         actual.toList == expected.toList
     }
@@ -523,6 +528,14 @@ class LongTraversableTest {
     val input = traversable(callback = _ => count += 1).view
 
     input.sliding(10)
+    assertEquals(0,count)
+  }
+  @Test
+  def grouped_is_lazy {
+    var count = 0
+    val input = traversable(callback = _ => count += 1).view
+
+    input.grouped(10)
     assertEquals(0,count)
   }
   def toLongResource[A](wrappedSeq:Seq[A]):LongTraversable[A] = new LongTraversable[A]{
